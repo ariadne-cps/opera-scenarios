@@ -26,6 +26,8 @@
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#include <list>
+
 #include "thread.hpp"
 #include "scenario_utility.hpp"
 #include "message.hpp"
@@ -95,9 +97,20 @@ void process(BrokerAccess const& access, String const& scenario_t, String const&
 
     Thread human_production([&]{
         auto* publisher = access.make_body_state_publisher();
+        unsigned int message_num = 0;
+        bool send = false;
+        std::list<unsigned int> switches = {1400,1750,2900,3320,4300,4420,5800,6130,7200,7470,8400,8955,10000,10075,12000,12465,12800,13160,13900,14125};
         while (not human_messages.empty()) {
             auto& p = human_messages.front();
-            publisher->put(p);
+            if (not switches.empty()) {
+                if (message_num == switches.front()) {
+                    send = (not send);
+                    switches.pop_front();
+                    CONCLOG_PRINTLN("At " << message_num << " sending is " << send)
+                }
+            }
+            if (send) publisher->put(p);
+            ++message_num;
             human_messages.pop_front();
             std::this_thread::sleep_for(std::chrono::microseconds(66667/speedup));
         }
@@ -134,7 +147,7 @@ int main(int argc, const char* argv[])
     if (not CommandLineInterface::instance().acquire(argc,argv)) return -1;
     Logger::instance().configuration().set_thread_name_printing_policy(ThreadNamePrintingPolicy::BEFORE);
     String const scenario_t = "dynamic";
-    String const scenario_k = "quadrants";
+    String const scenario_k = "1";
     SizeType const speedup = 1;
     SizeType const concurrency = 16;
     BrokerAccess access = MemoryBrokerAccess();
